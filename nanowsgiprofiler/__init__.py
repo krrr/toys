@@ -17,6 +17,8 @@ with open(os.path.join(_file_path, 'profiler.html'), 'rb') as _f:
 
 
 class NanoProfilerMiddleware(object):
+    SIMPLE_OUTPUT_TOGGLE_KEY = '__nanopro_s_o'
+
     def __init__(self, app, simplify_output=True):
         self.toggle_key = '_profiler'
         self.enable_value = 'on'
@@ -44,7 +46,7 @@ class NanoProfilerMiddleware(object):
     def __call__(self, environ, start_response):
         query = query_str2dict(environ.get('QUERY_STRING'))
         key_morsel = Cookie(environ.get('HTTP_COOKIE', '')).get(self.toggle_key)
-        # usable status
+        # useful vars
         enable_by_cookie = key_morsel.value == self.enable_value if key_morsel else False
         enable_by_query = query.get(self.toggle_key) == self.enable_value
         disable = query.get(self.toggle_key) == ''  # only can be disabled by query
@@ -53,6 +55,10 @@ class NanoProfilerMiddleware(object):
         run_app, resp_body, saved_ss_args = self._intercept_call()
 
         if enable:
+            so = query.get(self.SIMPLE_OUTPUT_TOGGLE_KEY)
+            if so is not None:
+                self.simplify_output = so == 'True'
+
             start = time.time()
             profile = Profile()
             profile.runcall(run_app, environ)  # here we call the WSGI app
@@ -76,6 +82,7 @@ class NanoProfilerMiddleware(object):
             # pop toggle_key form query dic to avoid case: '?_profile=on&_profile='
             query.pop(self.toggle_key, None)
             environ['QUERY_STRING'] = dict2query_str(query)
+
             rendered = self.render_result(profile, elapsed, environ).encode('ascii')
             # encode with ascii to avoid the trouble of finding encoding of original response
             resp_body = [insert_into_body(rendered, b''.join(resp_body))]
@@ -129,9 +136,12 @@ class NanoProfilerMiddleware(object):
 
             function_calls.append(current)
 
-        kv = '%s=' % self.toggle_key
-        path = reconstruct_path(environ) + ('&' if environ.get('QUERY_STRING') else '') + kv
+        path = reconstruct_path(environ) + ('&' if environ.get('QUERY_STRING') else '')
 
         return _template.render(
             ms_elapsed='{:.1f}'.format(time_elapsed * 1000),
-            function_calls=function_calls, disable_url=path)
+            function_calls=function_calls,
+            disable_url=path + '%s=' % self.toggle_key,
+            toggle_simple_output_url=path + '%s=%s' % (self.SIMPLE_OUTPUT_TOGGLE_KEY,
+                                                       not self.simplify_output)
+        )

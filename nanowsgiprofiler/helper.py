@@ -1,11 +1,15 @@
 from warnings import warn
 from itertools import chain
-from os import path
 import sys
-
-__all__ = ('insert_into_body', 'query_string2dict', 'shorten_filename', 'iteritems', 'PY2')
-
+import os
 PY2 = sys.version_info[0] == 2
+if PY2:
+    from Cookie import Cookie
+    from urllib import quote
+else:
+    from urllib.parse import quote
+    from http.cookies import BaseCookie as Cookie
+
 
 if PY2:
     iteritems = lambda d: d.iteritems()
@@ -26,7 +30,7 @@ def insert_into_body(html, target):
         return target
 
 
-def query_string2dict(query):
+def query_str2dict(query):
     if not query:
         return {}
     pairs = query.split('&')
@@ -36,16 +40,20 @@ def query_string2dict(query):
         return {}
 
 
+def dict2query_str(dic):
+    return '&'.join('%s=%s' % (k, v) for k, v in iteritems(dic))
+
+
 def shorten_filename(name):
-    name = path.normpath(name)
+    name = os.path.normpath(name)
 
     # if the file is absolute, try normalizing it relative to ./
     # to handle it as a project file
-    if path.isabs(name):
+    if os.path.isabs(name):
         name = _shortest_relative_path(name, ['.'])
 
-    if not path.isabs(name):  # it is a project file
-        return path.join('.', name)
+    if not os.path.isabs(name):  # it is a project file
+        return os.path.join('.', name)
     else:  # otherwise, normalize other paths relative to library dirs
         return '<%s>' % _shortest_relative_path(name, _py_libs)
 
@@ -58,7 +66,7 @@ def _shortest_relative_path(name, paths):
 def _relative_paths(value, paths):
     for i in paths:
         try:
-            rel_path = path.relpath(value, i)
+            rel_path = os.path.relpath(value, i)
         except ValueError:
             # on Windows, relpath throws a ValueError for
             # paths with different drives
@@ -73,13 +81,22 @@ def get_python_lib():
     py_ver = sys.version[:3]
 
     def lib_for_prefix(prefix):
-        standard = path.join(prefix, 'lib', 'python' + py_ver)
-        return [standard, path.join(standard, "site-packages")]
+        standard = os.path.join(prefix, 'lib', 'python' + py_ver)
+        return [standard, os.path.join(standard, "site-packages")]
 
     if hasattr(sys, 'real_prefix'):  # virtualenv
         return lib_for_prefix(sys.real_prefix) + lib_for_prefix(sys.prefix)
     else:
         return lib_for_prefix(sys.prefix)
 
+
+def reconstruct_path(environ):
+    path = []
+    path.append(quote(environ.get('SCRIPT_NAME', '')))
+    path.append(quote(environ.get('PATH_INFO', '')))
+    query = environ.get('QUERY_STRING')
+    if query:
+        path.append('?' + query)
+    return ''.join(path)
 
 _py_libs = get_python_lib()

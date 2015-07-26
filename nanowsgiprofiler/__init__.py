@@ -1,5 +1,5 @@
+# some code taken from flask_debug toolbar
 import time
-from os import path
 try:
     from cProfile import Profile
 except ImportError:
@@ -8,15 +8,11 @@ import pstats
 from wsgiref.headers import Headers
 from jinja2 import Template
 from nanowsgiprofiler.helper import *
-if PY2:
-    from Cookie import Cookie
-else:
-    from http.cookies import BaseCookie as Cookie
 
 
-_file_path = path.abspath(path.dirname(__file__))
+_file_path = os.path.abspath(os.path.dirname(__file__))
 
-with open(path.join(_file_path, 'profiler.html'), 'rb') as _f:
+with open(os.path.join(_file_path, 'profiler.html'), 'rb') as _f:
     _template = Template(_f.read().decode('ascii'))
 
 
@@ -24,58 +20,70 @@ class NanoProfilerMiddleware(object):
     def __init__(self, app, simplify_output=True):
         self.toggle_key = '_profiler'
         self.enable_value = 'on'
-        self.disable_value = 'off'
         self._app = app
         self.simplify_output = simplify_output
 
-    def __call__(self, environ, start_response):
-        query = query_string2dict(environ.get('QUERY_STRING'))
-        key_morsel = Cookie(environ.get('HTTP_COOKIE', '')).get(self.toggle_key)
-        enabled_by_cookie = key_morsel.value == self.enable_value if key_morsel else False
-        enabled_by_query = query.get(self.toggle_key) == self.enable_value
-
-        if not enabled_by_query and not enabled_by_cookie:
-            return self._app(environ, start_response)
-
+    def _intercept_call(self):
+        """Return run_app, resp_body, saved_ss_args. After calling run_app(environ)
+        resp_body will contain response, and saved_ss_args contain args which
+        app used to call start_response."""
         resp_body, saved_ss_args = [], []
 
         def start_response_proxy(*args):
             saved_ss_args.extend(args)
             return resp_body.append
 
-        def run_app():
+        def run_app(environ):
             app_iter = self._app(environ, start_response_proxy)
             resp_body.extend(app_iter)
             if hasattr(app_iter, 'close'):
                 app_iter.close()
 
-        start = time.time()
-        profile = Profile()
-        profile.runcall(run_app)  # here we call the WSGI app
-        elapsed = time.time() - start
+        return run_app, resp_body, saved_ss_args
+
+    def __call__(self, environ, start_response):
+        query = query_str2dict(environ.get('QUERY_STRING'))
+        key_morsel = Cookie(environ.get('HTTP_COOKIE', '')).get(self.toggle_key)
+        # usable status
+        enable_by_cookie = key_morsel.value == self.enable_value if key_morsel else False
+        enable_by_query = query.get(self.toggle_key) == self.enable_value
+        disable = query.get(self.toggle_key) == ''  # only can be disabled by query
+        enable = not disable and (enable_by_query or enable_by_cookie)
+
+        run_app, resp_body, saved_ss_args = self._intercept_call()
+
+        if enable:
+            start = time.time()
+            profile = Profile()
+            profile.runcall(run_app, environ)  # here we call the WSGI app
+            elapsed = time.time() - start
+        else:
+            profile = elapsed = None  # for annoying IDE
+            run_app(environ)
 
         status, headers = saved_ss_args[:2]
         headers_dic = Headers(headers)
 
-        if not (status.startswith('200') and
-                headers_dic.get('Content-Type', '').startswith('text/html')):
-            start_response(*saved_ss_args)
-            return resp_body
-
-        # processing cookies which used to enable profiler
-        if enabled_by_query and not enabled_by_cookie:
-            headers_dic.add_header('Set-Cookie', '%s=%s; HttpOnly' % (self.toggle_key, self.enable_value))
-        elif query.get(self.toggle_key) == self.disable_value:
+        # processing cookies (set or clear)
+        if enable_by_query and not enable_by_cookie:
+            headers_dic.add_header('Set-Cookie',
+                                   '%s=%s; HttpOnly' % (self.toggle_key, self.enable_value))
+        elif disable:
             headers_dic.add_header('Set-Cookie', '%s=; Max-Age=1; HttpOnly' % self.toggle_key)
 
-        rendered = self.render_result(profile, elapsed)
-        # encode with ascii to avoid the trouble of finding encoding of original response, may be buggy!
-        new_resp = insert_into_body(rendered.encode('ascii'), b''.join(resp_body))
-        headers_dic['Content-Length'] = str(len(new_resp))
-        start_response(status, headers)
-        return [new_resp]
+        if (enable and status.startswith('200') and
+           headers_dic.get('Content-Type', '').startswith('text/html')):
+            # pop toggle_key form query dic to avoid case: '?_profile=on&_profile='
+            query.pop(self.toggle_key, None)
+            environ['QUERY_STRING'] = dict2query_str(query)
+            rendered = self.render_result(profile, elapsed, environ).encode('ascii')
+            # encode with ascii to avoid the trouble of finding encoding of original response
+            resp_body = [insert_into_body(rendered, b''.join(resp_body))]
+            headers_dic['Content-Length'] = str(len(resp_body[0]))
+        start_response(status, headers, saved_ss_args[2] if len(saved_ss_args) == 3 else None)
+        return resp_body
 
-    def render_result(self, profile, time_elapsed):
+    def render_result(self, profile, time_elapsed, environ):
         profile.create_stats()
         stats = profile.stats
 
@@ -121,4 +129,9 @@ class NanoProfilerMiddleware(object):
 
             function_calls.append(current)
 
-        return _template.render(ms_elapsed=int(time_elapsed * 1000), function_calls=function_calls)
+        kv = '%s=' % self.toggle_key
+        path = reconstruct_path(environ) + ('&' if environ.get('QUERY_STRING') else '') + kv
+
+        return _template.render(
+            ms_elapsed='{:.1f}'.format(time_elapsed * 1000),
+            function_calls=function_calls, disable_url=path)

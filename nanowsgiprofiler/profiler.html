@@ -51,6 +51,7 @@
       margin-top: 10px;
       text-align: right;
     }
+    .nowrap { white-space: nowrap; }
   </style>
 
   <h2 id="_nano_title">Total Time: {{ ms_elapsed }} ms</h2>
@@ -69,7 +70,7 @@
     <tbody>
     {% for i in function_calls %}
     <tr>
-      <td title="Full-path: {{ i.filename_full }}">{{ i.filename|escape }}</td>
+      <td class="nowrap" title="Full-path: {{ i.filename_full }}">{{ i.filename|escape }}</td>
       <td>{{ i.ncalls }}</td>
       <td>{{ i.tottime }}</td>
       <td>{{ i.percall }}</td>
@@ -82,7 +83,7 @@
 
   <div id="_nano_btn_group">
     <a class="pure-button pure-button-primary" href="{{ disable_url }}">Disable profiler</a>
-    <a class="pure-button" href="http://g.cn">Disable profiler</a>
+    <a class="pure-button" href="{{ toggle_simple_output_url }}">Toggle simple-output</a>
   </div>
 
   <script>

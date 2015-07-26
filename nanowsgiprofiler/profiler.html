@@ -1,91 +1,69 @@
-<div>
+<div id="_nano_profiler">
   <!-- tablesort.min.js -->
   <script>!function(){function a(b,c){if(!(this instanceof a))return new a(b,c);if(!b||"TABLE"!==b.tagName)throw new Error("Element must be a table");this.init(b,c||{})}var b=[],c=function(a){var b;return window.CustomEvent&&"function"==typeof window.CustomEvent?b=new CustomEvent(a):(b=document.createEvent("CustomEvent"),b.initCustomEvent(a,!1,!1,void 0)),b},d=function(a){return a.getAttribute("data-sort")||a.textContent||a.innerText||""},e=function(a,b){return a=a.toLowerCase(),b=b.toLowerCase(),a===b?0:b>a?1:-1},f=function(a,b){return function(c,d){var e=a(c.td,d.td);return 0===e?b?d.index-c.index:c.index-d.index:e}};a.extend=function(a,c,d){if("function"!=typeof c||"function"!=typeof d)throw new Error("Pattern and sort must be a function");b.push({name:a,pattern:c,sort:d})},a.prototype={init:function(a,b){var c,d,e,f,g=this;if(g.table=a,g.thead=!1,g.options=b,a.rows&&a.rows.length>0&&(a.tHead&&a.tHead.rows.length>0?(c=a.tHead.rows[a.tHead.rows.length-1],g.thead=!0):c=a.rows[0]),c){var h=function(){g.current&&g.current!==this&&(g.current.classList.remove("sort-up"),g.current.classList.remove("sort-down")),g.current=this,g.sortTable(this)};for(e=0;e<c.cells.length;e++)f=c.cells[e],f.classList.contains("no-sort")||(f.classList.add("sort-header"),f.tabindex=0,f.addEventListener("click",h,!1),f.classList.contains("sort-default")&&(d=f));d&&(g.current=d,g.sortTable(d))}},sortTable:function(a,g){var h,i=this,j=a.cellIndex,k=e,l="",m=[],n=i.thead?0:1,o=a.getAttribute("data-sort-method");if(i.table.dispatchEvent(c("beforeSort")),g?h=a.classList.contains("sort-up")?"sort-up":"sort-down":(h=a.classList.contains("sort-up")?"sort-down":a.classList.contains("sort-down")?"sort-up":i.options.descending?"sort-up":"sort-down",a.classList.remove("sort-down"===h?"sort-up":"sort-down"),a.classList.add(h)),!(i.table.rows.length<2)){if(!o){for(;m.length<3&&n<i.table.tBodies[0].rows.length;)l=d(i.table.tBodies[0].rows[n].cells[j]),l=l.trim(),l.length>0&&m.push(l),n++;if(!m)return}for(n=0;n<b.length;n++)if(l=b[n],o){if(l.name===o){k=l.sort;break}}else if(m.every(l.pattern)){k=l.sort;break}i.col=j;var p,q=[],r={},s=0,t=0;for(n=0;n<i.table.tBodies.length;n++)for(p=0;p<i.table.tBodies[n].rows.length;p++)l=i.table.tBodies[n].rows[p],l.classList.contains("no-sort")?r[s]=l:q.push({tr:l,td:d(l.cells[i.col]),index:s}),s++;for("sort-down"===h?(q.sort(f(k,!0)),q.reverse()):q.sort(f(k,!1)),n=0;s>n;n++)r[n]?(l=r[n],t++):l=q[n-t].tr,i.table.tBodies[0].appendChild(l);i.table.dispatchEvent(c("afterSort"))}},refresh:function(){void 0!==this.current&&this.sortTable(this.current,!0)}},"undefined"!=typeof module&&module.exports?module.exports=a:window.Tablesort=a}();</script>
   <!-- tablesort.numeric.js -->
   <script>(function(){var cleanNumber=function(i){return i.replace(/[^\-?0-9.]/g,'');},compareNumber=function(a,b){a=parseFloat(a);b=parseFloat(b);a=isNaN(a)?0:a;b=isNaN(b)?0:b;return a-b;};Tablesort.extend('number',function(item){return item.match(/^-?(\d)*-?([,\.]){0,1}-?(\d)+([E,e][\-+][\d]+)?%?$/);},function(a,b){a=cleanNumber(a);b=cleanNumber(b);return compareNumber(b,a);});}());</script>
-  <!-- reset css -->
   <style scoped>
-    table {
-    background:#fff;
-    max-width:100%;
-    border-spacing:0;
-    width:100%;
-    margin:10px 0;
-    border:1px solid #ddd;
-    border-collapse:separate;
-    *border-collapse:collapsed;
-    -webkit-box-shadow:0 0 4px rgba(0,0,0,0.10);
-    -moz-box-shadow:0 0 4px rgba(0,0,0,0.10);
-    box-shadow:0 0 4px rgba(0,0,0,0.10);
-    }
-    table th, table td {
-    padding:8px;
-    line-height:11px;
-    text-align:left;
-    border-top:1px solid #ddd;
-    }
-    table th {
-    background:#eee;
-    background:-webkit-gradient(linear, left top, left bottom, from(#f6f6f6), to(#eee));
-    background:-moz-linear-gradient(top, #f6f6f6, #eee);
-    text-shadow:0 1px 0 #fff;
-    font-weight:bold;
-    vertical-align:bottom;
-    }
-    table td {
-    vertical-align:top;
-    }
-    table thead:first-child tr th, table thead:first-child tr td {
-    border-top:0;
-    }
-    table tbody + tbody {
-    border-top:2px solid #ddd;
-    }
-    table th + th, table td + td, table th + td, table td + th {
-    border-left:1px solid #ddd;
-    }
-    table thead:first-child tr:first-child th,
-    table tbody:first-child tr:first-child th,
-    table tbody:first-child tr:first-child td {
-    border-top:0;
-    }
-    /* tablesort specific styling */
-    th.sort-header::selection, th.sort-header::-moz-selection { background:transparent; }
+    /* Pure.css */
+    .pure-table{border-collapse:collapse;border-spacing:0;empty-cells:show;border:1px solid #cbcbcb}.pure-table caption{color:#000;font:italic 85%/1 arial,sans-serif;padding:1em 0;text-align:center}.pure-table td,.pure-table th{border-left:1px solid #cbcbcb;border-width:0 0 0 1px;font-size:inherit;margin:0;overflow:visible;padding:.5em 1em}.pure-table td:first-child,.pure-table th:first-child{border-left-width:0}.pure-table thead{background-color:#e0e0e0;color:#000;text-align:left;vertical-align:bottom}.pure-table td{background-color:transparent}.pure-table-odd td{background-color:#f2f2f2}.pure-table-striped tr:nth-child(2n-1) td{background-color:#f2f2f2}.pure-table-bordered td{border-bottom:1px solid #cbcbcb}.pure-table-bordered tbody>tr:last-child>td{border-bottom-width:0}.pure-table-horizontal td,.pure-table-horizontal th{border-width:0 0 1px;border-bottom:1px solid #cbcbcb}.pure-table-horizontal tbody>tr:last-child>td{border-bottom-width:0}
+    .pure-button{display:inline-block;zoom:1;line-height:normal;white-space:nowrap;vertical-align:middle;text-align:center;cursor:pointer;user-select:none;box-sizing:border-box;font-family:inherit;font-size:100%;padding:0.5em 1em;color:rgba(0,0,0,0.80);border:none rgba(0,0,0,0);background-color:#E6E6E6;text-decoration:none;border-radius:2px;}.pure-button:hover,.pure-button:focus{background-image: linear-gradient(transparent, rgba(0,0,0, 0.05) 40%, rgba(0,0,0, 0.10));}.pure-button:focus{outline:0;}.pure-button-active,.pure-button:active{box-shadow:0 0 0 1px rgba(0,0,0,0.15) inset, 0 0 6px rgba(0,0,0, 0.20) inset;border-color: #000\9;}.pure-button::-moz-focus-inner{padding:0;border:0;}.pure-button-primary,.pure-button-selected,a.pure-button-primary,a.pure-button-selected{background-color:rgb(0,120,231);color:#fff;}
+    /* tablesort part */
+    th.sort-header::-moz-selection, th.sort-header::selection { background:transparent; }
     th.sort-header { cursor:pointer; }
     table th.sort-header:after {
-    content:'';
-    float:right;
-    margin-top:7px;
-    border-width:0 4px 4px;
-    border-style:solid;
-    border-color:#404040 transparent;
-    visibility:hidden;
-    }
+      content:'';
+      float:right;
+      margin-top:7px;
+      border-width:0 4px 4px;
+      border-style:solid;
+      border-color:#404040 transparent;
+      visibility:hidden;
+      }
     table th.sort-header:hover:after {
-    visibility:visible;
-    }
+      visibility:visible;
+      }
     table th.sort-up:after,
     table th.sort-down:after,
     table th.sort-down:hover:after {
-    visibility:visible;
-    opacity:0.4;
-    }
+      visibility:visible;
+      opacity:0.4;
+      }
     table th.sort-up:after {
-    border-bottom:none;
-    border-width:4px 4px 0;
+      border-bottom:none;
+      border-width:4px 4px 0;
+      }
+    /* nano styles */
+    #_nano_profiler {
+      width: 80%;
+      margin: 0px auto;
+      border: 1px dashed #4B4B4B;
+      border-radius: 2px;
+      padding: 10px;
+      background-color: #DDD;
+    }
+    h2 {
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #4B4B4B;
+      font-family: "Georgia", serif;
+    }
+    #_nano_btn_group {
+      margin-top: 10px;
+      text-align: right;
     }
   </style>
 
-  <p>{{ ms_elapsed }} ms</p>
-  <table id="_call_table" class="sort">
+  <h2 id="_nano_title">Total Time: {{ ms_elapsed }} ms</h2>
+
+  <table id="_nano_call_table" class="sort pure-table pure-table-striped">
     <thead>
     <tr>
-      <th class="sort-header">location</th>
-      <th class="sort-header">ncalls</th>
-      <th class="sort-header">total time</th>
-      <th class="sort-header">per-call</th>
-      <th class="sort-header sort-default sort-down">cumulative time</th>
-      <th class="sort-header">per-call</th>
+      <th class="sort-header">Location</th>
+      <th class="sort-header">Calls</th>
+      <th class="sort-header">Total Time (ms)</th>
+      <th class="sort-header">Per Call (ms)</th>
+      <th class="sort-header sort-default sort-down">Cumulative Time (ms)</th>
+      <th class="sort-header">Per Call (ms)</th>
     </tr>
     </thead>
     <tbody>
@@ -101,7 +79,13 @@
     {% endfor %}
     </tbody>
   </table>
+
+  <div id="_nano_btn_group">
+    <a class="pure-button pure-button-primary" href="http://g.cn">Disable profiler</a>
+    <a class="pure-button" href="http://g.cn">Disable profiler</a>
+  </div>
+
   <script>
-    new Tablesort(document.getElementById('_call_table'));
+    new Tablesort(document.getElementById('_nano_call_table'));
   </script>
 </div>

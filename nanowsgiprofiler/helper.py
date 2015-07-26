@@ -77,11 +77,18 @@ def _relative_paths(value, paths):
 
 def get_python_lib():
     """Get path of libraries including standard and 3rd-party ones. For virtualenv,
-    both virtual and real lib will be included."""
+    both virtual and real lib will be included. This is modified version of
+    distutils.sysconfig.get_python_lib."""
     py_ver = sys.version[:3]
 
     def lib_for_prefix(prefix):
-        standard = os.path.join(prefix, 'lib', 'python' + py_ver)
+        if os.name == 'posix':
+            standard = os.path.join(prefix, 'lib', 'python' + py_ver)
+        elif os.name == 'nt':
+            standard = os.path.join(prefix, 'Lib')
+        else:
+            warn('Failed to get python libraries')
+            return []
         return [standard, os.path.join(standard, "site-packages")]
 
     if hasattr(sys, 'real_prefix'):  # virtualenv

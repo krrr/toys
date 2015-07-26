@@ -29,9 +29,9 @@ def insert_into_body(html, target):
 def query_string2dict(query):
     if not query:
         return {}
-    pairs = query.split(b'&')
+    pairs = query.split('&')
     try:
-        return dict(map(lambda pair: pair.split(b'='), pairs))
+        return dict(map(lambda pair: pair.split('='), pairs))
     except ValueError:
         return {}
 

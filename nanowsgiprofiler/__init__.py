@@ -11,7 +11,7 @@ from nanowsgiprofiler.helper import *
 if PY2:
     from Cookie import Cookie
 else:
-    from http.cookie import Cookie
+    from http.cookies import BaseCookie as Cookie
 
 
 _file_path = path.abspath(path.dirname(__file__))
@@ -22,9 +22,9 @@ with open(path.join(_file_path, 'profiler.html'), 'rb') as _f:
 
 class NanoProfilerMiddleware(object):
     def __init__(self, app, simplify_output=True):
-        self.toggle_key = b'_profiler'
-        self.enable_value = b'on'
-        self.disable_value = b'off'
+        self.toggle_key = '_profiler'
+        self.enable_value = 'on'
+        self.disable_value = 'off'
         self._app = app
         self.simplify_output = simplify_output
 

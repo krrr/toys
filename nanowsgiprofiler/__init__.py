@@ -137,7 +137,7 @@ class NanoProfilerMiddleware(object):
 
             function_calls.append(current)
 
-        path = reconstruct_path(environ) + ('&' if environ.get('QUERY_STRING') else '')
+        path = reconstruct_path(environ) + ('&' if environ.get('QUERY_STRING') else '?')
 
         return _template.render(
             ms_elapsed='{:.1f}'.format(time_elapsed * 1000),

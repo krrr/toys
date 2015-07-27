@@ -98,6 +98,7 @@ class NanoProfilerMiddleware(object):
     def render_result(self, profile, time_elapsed, environ):
         profile.create_stats()
         stats = profile.stats
+        fmt = '{:.2f}'.format
 
         function_calls = []
         for func, info in iteritems(stats):
@@ -124,20 +125,14 @@ class NanoProfilerMiddleware(object):
             else:
                 current['ncalls'] = info[1]
             # col2: total time
-            current['tottime'] = '{:.2f}'.format(info[2] * 1000)
+            current['tottime'] = fmt(info[2] * 1000)
             # col3: quotient of total time divided by number of calls
-            if info[1]:
-                current['percall'] = '{:.2f}'.format(info[2] * 1000 / info[1])
-            else:
-                current['percall'] = 0
+            current['percall'] = fmt(info[2] * 1000 / info[1])  if info[1] else 0
             # col4: cumulative time
-            current['cumtime'] = '{:.2f}'.format(info[3] * 1000)
+            current['cumtime'] = fmt(info[3] * 1000)
             # col5: quotient of the cumulative time divided by the number of
             # primitive calls.
-            if info[0]:
-                current['percall_cum'] = '{:.2f}'.format(info[3] * 1000 / info[0])
-            else:
-                current['percall_cum'] = 0
+            current['percall_cum'] = fmt(info[3] * 1000 / info[0]) if info[0] else 0
 
             function_calls.append(current)
 

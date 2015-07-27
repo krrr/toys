@@ -26,7 +26,7 @@ class NanoProfilerMiddleware(object):
         self.simplify_output = simplify_output
 
     def _intercept_call(self):
-        """Return run_app, resp_body, saved_ss_args. After calling run_app(environ)
+        """Return (run_app, resp_body, saved_ss_args). After calling run_app(environ)
         resp_body will contain response, and saved_ss_args contain args which
         app used to call start_response."""
         resp_body, saved_ss_args = [], []
@@ -44,9 +44,9 @@ class NanoProfilerMiddleware(object):
         return run_app, resp_body, saved_ss_args
 
     def __call__(self, environ, start_response):
-        query = query_str2dict(environ.get('QUERY_STRING'))
         key_morsel = Cookie(environ.get('HTTP_COOKIE', '')).get(self.toggle_key)
         # useful vars
+        query = query_str2dict(environ.get('QUERY_STRING'))
         enable_by_cookie = key_morsel.value == self.enable_value if key_morsel else False
         enable_by_query = query.get(self.toggle_key) == self.enable_value
         disable = query.get(self.toggle_key) == ''  # only can be disabled by query
@@ -73,10 +73,11 @@ class NanoProfilerMiddleware(object):
         # processing cookies (set or clear)
         if enable_by_query and not enable_by_cookie:
             headers_dic.add_header('Set-Cookie',
-                                   '%s=%s; HttpOnly' % (self.toggle_key, self.enable_value))
+                                   '%s=%s; Path=/; HttpOnly' % (self.toggle_key, self.enable_value))
         elif disable:
-            headers_dic.add_header('Set-Cookie', '%s=; Max-Age=1; HttpOnly' % self.toggle_key)
+            headers_dic.add_header('Set-Cookie', '%s=; Path=/; Max-Age=1; HttpOnly' % self.toggle_key)
 
+        # insert result into response
         if (enable and status.startswith('200') and
            headers_dic.get('Content-Type', '').startswith('text/html')):
             # pop toggle_key form query dic to avoid case: '?_profile=on&_profile='

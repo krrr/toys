@@ -8,6 +8,10 @@ import pstats
 from wsgiref.headers import Headers
 from jinja2 import Template
 from nanowsgiprofiler.helper import *
+if PY2:
+    from Cookie import Cookie
+else:
+    from http.cookies import BaseCookie as Cookie
 
 
 _file_path = os.path.abspath(os.path.dirname(__file__))

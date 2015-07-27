@@ -4,11 +4,9 @@ import sys
 import os
 PY2 = sys.version_info[0] == 2
 if PY2:
-    from Cookie import Cookie
     from urllib import quote
 else:
     from urllib.parse import quote
-    from http.cookies import BaseCookie as Cookie
 
 
 if PY2:
@@ -44,18 +42,31 @@ def dict2query_str(dic):
     return '&'.join('%s=%s' % (k, v) for k, v in iteritems(dic))
 
 
+_short_dir_cache = {}
+
 def shorten_filename(name):
-    name = os.path.normpath(name)
+    dir_name, base_name = os.path.split(name)
+    ret = _short_dir_cache.get(dir_name)
+    if ret is not None:
+        short_dir = _short_dir_cache[dir_name]
+    else:
+        origin_dir_name = dir_name
+        # if the file is absolute, try normalizing it relative to ./
+        # to handle it as a project file
+        if os.path.isabs(dir_name):
+            dir_name = _shortest_relative_path(dir_name, ['.'])
 
-    # if the file is absolute, try normalizing it relative to ./
-    # to handle it as a project file
-    if os.path.isabs(name):
-        name = _shortest_relative_path(name, ['.'])
+        if not os.path.isabs(dir_name):  # it is a project file
+            short_dir = os.path.join('.', dir_name)
+        else:  # otherwise, normalize other paths relative to library dirs
+            dir_name = os.path.realpath(dir_name)  # deal with virtualenv
+            short_dir = '<%s>' % _shortest_relative_path(dir_name, _py_libs)
+        _short_dir_cache[origin_dir_name] = short_dir
 
-    if not os.path.isabs(name):  # it is a project file
-        return os.path.join('.', name)
-    else:  # otherwise, normalize other paths relative to library dirs
-        return '<%s>' % _shortest_relative_path(name, _py_libs)
+    if short_dir.startswith('<'):
+        return '<%s>' % os.path.join(short_dir[1:-1], base_name)
+    else:
+        return os.path.join(short_dir, base_name)
 
 
 def _shortest_relative_path(name, paths):
@@ -98,9 +109,7 @@ def get_python_lib():
 
 
 def reconstruct_path(environ):
-    path = []
-    path.append(quote(environ.get('SCRIPT_NAME', '')))
-    path.append(quote(environ.get('PATH_INFO', '')))
+    path = [quote(environ.get('SCRIPT_NAME', '')), quote(environ.get('PATH_INFO', ''))]
     query = environ.get('QUERY_STRING')
     if query:
         path.append('?' + query)

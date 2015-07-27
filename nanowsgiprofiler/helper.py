@@ -57,7 +57,7 @@ def shorten_filename(name):
             dir_name = _shortest_relative_path(dir_name, ['.'])
 
         if not os.path.isabs(dir_name):  # it is a project file
-            short_dir = os.path.join('.', dir_name)
+            short_dir = dir_name
         else:  # otherwise, normalize other paths relative to library dirs
             dir_name = os.path.realpath(dir_name)  # deal with virtualenv
             short_dir = '<%s>' % _shortest_relative_path(dir_name, _py_libs)

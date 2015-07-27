@@ -35,14 +35,14 @@
     /* nano styles */
     #_nano_profiler {
       width: 80%;
-      margin: 0px auto;
+      margin: 3px auto;
       border: 1px dashed #4B4B4B;
       border-radius: 2px;
       padding: 10px;
       background-color: #DDD;
     }
     h2 {
-      margin-bottom: 5px;
+      margin: 0px 0px 5px 0px;
       font-weight: bold;
       color: #4B4B4B;
       font-family: "Georgia", serif;
@@ -83,7 +83,7 @@
 
   <div id="_nano_btn_group">
     <a class="pure-button pure-button-primary" href="{{ disable_url }}">Disable profiler</a>
-    <a class="pure-button" href="{{ toggle_simple_output_url }}">Toggle simple-output</a>
+    <a class="pure-button {{ 'pure-button-active' if simple_output else ''}}" href="{{ toggle_simple_output_url }}">Toggle simple-output</a>
   </div>
 
   <script>

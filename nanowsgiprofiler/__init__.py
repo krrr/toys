@@ -19,11 +19,11 @@ with open(os.path.join(_file_path, 'profiler.html'), 'rb') as _f:
 class NanoProfilerMiddleware(object):
     SIMPLE_OUTPUT_TOGGLE_KEY = '__nanopro_s_o'
 
-    def __init__(self, app, simplify_output=True):
+    def __init__(self, app, simple_output=True):
         self.toggle_key = '_profiler'
         self.enable_value = 'on'
         self._app = app
-        self.simplify_output = simplify_output
+        self.simple_output = simple_output
 
     def _intercept_call(self):
         """Return (run_app, resp_body, saved_ss_args). After calling run_app(environ)
@@ -57,7 +57,7 @@ class NanoProfilerMiddleware(object):
         if enable:
             so = query.get(self.SIMPLE_OUTPUT_TOGGLE_KEY)
             if so is not None:
-                self.simplify_output = so == 'True'
+                self.simple_output = so == 'True'
 
             start = time.time()
             profile = Profile()
@@ -111,7 +111,7 @@ class NanoProfilerMiddleware(object):
             current['filename'], current['filename_full'] = name, name_full
 
             # skip functions that is in library or built-in
-            if self.simplify_output and name.startswith(('{', '<')):
+            if self.simple_output and name.startswith(('{', '<')):
                 continue
 
             # col1: number of calls
@@ -144,5 +144,6 @@ class NanoProfilerMiddleware(object):
             function_calls=function_calls,
             disable_url=path + '%s=' % self.toggle_key,
             toggle_simple_output_url=path + '%s=%s' % (self.SIMPLE_OUTPUT_TOGGLE_KEY,
-                                                       not self.simplify_output)
+                                                       not self.simple_output),
+            simple_output=self.simple_output
         )

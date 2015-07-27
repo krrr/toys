@@ -53,16 +53,23 @@ class NanoProfilerMiddleware(object):
         query = query_str2dict(environ.get('QUERY_STRING'))
         enable_by_cookie = key_morsel.value == self.enable_value if key_morsel else False
         enable_by_query = query.get(self.toggle_key) == self.enable_value
-        disable = query.get(self.toggle_key) == ''  # only can be disabled by query
+        # pop toggle_key form query dic to avoid case: '?_profile=on&_profile='
+        disable = query.pop(self.toggle_key, None) == ''  # only can be disabled by query
         enable = not disable and (enable_by_query or enable_by_cookie)
 
         run_app, resp_body, saved_ss_args = self._intercept_call()
 
-        if enable:
-            so = query.get(self.SIMPLE_OUTPUT_TOGGLE_KEY)
-            if so is not None:
-                self.simple_output = so == 'True'
+        # processing cookies and queries
+        so = query.pop(self.SIMPLE_OUTPUT_TOGGLE_KEY, None)
+        if so is not None:
+            self.simple_output = so == 'True'
+        cookie_to_set = None
+        if enable_by_query and not enable_by_cookie:
+            cookie_to_set = '%s=%s; Path=/; HttpOnly' % (self.toggle_key, self.enable_value)
+        elif disable:
+            cookie_to_set = '%s=; Path=/; Max-Age=1; HttpOnly' % self.toggle_key
 
+        if enable:
             start = time.time()
             profile = Profile()
             profile.runcall(run_app, environ)  # here we call the WSGI app
@@ -73,19 +80,12 @@ class NanoProfilerMiddleware(object):
 
         status, headers = saved_ss_args[:2]
         headers_dic = Headers(headers)
-
-        # processing cookies (set or clear)
-        if enable_by_query and not enable_by_cookie:
-            headers_dic.add_header('Set-Cookie',
-                                   '%s=%s; Path=/; HttpOnly' % (self.toggle_key, self.enable_value))
-        elif disable:
-            headers_dic.add_header('Set-Cookie', '%s=; Path=/; Max-Age=1; HttpOnly' % self.toggle_key)
+        if cookie_to_set:
+            headers_dic.add_header('Set-Cookie', cookie_to_set)
 
         # insert result into response
         if (enable and status.startswith('200') and
            headers_dic.get('Content-Type', '').startswith('text/html')):
-            # pop toggle_key form query dic to avoid case: '?_profile=on&_profile='
-            query.pop(self.toggle_key, None)
             environ['QUERY_STRING'] = dict2query_str(query)
 
             rendered = self.render_result(profile, elapsed, environ).encode('ascii')

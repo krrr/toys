@@ -53,7 +53,7 @@ class NanoProfilerMiddleware(object):
         query = query_str2dict(environ.get('QUERY_STRING'))
         enable_by_cookie = key_morsel.value == self.enable_value if key_morsel else False
         enable_by_query = query.get(self.toggle_key) == self.enable_value
-        # pop toggle_key form query dic to avoid case: '?_profile=on&_profile='
+        # pop toggle_key from query dic to avoid case: '?_profile=on&_profile='
         disable = query.pop(self.toggle_key, None) == ''  # only can be disabled by query
         enable = not disable and (enable_by_query or enable_by_cookie)
 

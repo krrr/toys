@@ -1,5 +1,6 @@
 # some code taken from flask_debug toolbar
 import time
+import re
 try:
     from cProfile import Profile
 except ImportError:
@@ -17,7 +18,9 @@ else:
 _file_path = os.path.abspath(os.path.dirname(__file__))
 
 with open(os.path.join(_file_path, 'profiler.html'), 'rb') as _f:
-    _template = Template(_f.read().decode('ascii'))
+    _template = Template(_f.read().decode('utf-8'))
+
+_find_charset = re.compile(r'.+charset=([^ ;]+)')
 
 
 class NanoProfilerMiddleware(object):
@@ -84,12 +87,13 @@ class NanoProfilerMiddleware(object):
             headers_dic.add_header('Set-Cookie', cookie_to_set)
 
         # insert result into response
-        if (enable and status.startswith('200') and
-           headers_dic.get('Content-Type', '').startswith('text/html')):
+        content_type = headers_dic.get('Content-Type', '')
+        if (enable and status.startswith('200') and content_type.startswith('text/html')):
             environ['QUERY_STRING'] = dict2query_str(query)
 
-            rendered = self.render_result(profile, elapsed, environ).encode('ascii')
-            # encode with ascii to avoid the trouble of finding encoding of original response
+            matched = _find_charset.match(content_type)
+            encoding = matched.group(1) if matched else 'ascii'
+            rendered = self.render_result(profile, elapsed, environ).encode(encoding, 'replace')
             resp_body = [insert_into_body(rendered, b''.join(resp_body))]
             headers_dic['Content-Length'] = str(len(resp_body[0]))
         start_response(status, headers, saved_ss_args[2] if len(saved_ss_args) == 3 else None)

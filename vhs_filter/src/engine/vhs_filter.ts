@@ -98,8 +98,10 @@ function lanczos3(x: number): number {
  * ga = src/dst ; ia = max(ga,1) ; ha = 3*ia (Lanczos3 support in src px).
  * Per dst coord n: center ca = ga*(n+0.5) - 0.5; tap src b gets weight
  * lanczos3((b - ca)/ia), window [floor(ba-ha), ceil(ba+ha)] clamped, then
- * weights normalized by their sum. Two separable passes (H then V). */
-function resizeLanczos(src: Float32Array, sw: number, sh: number, dw: number, dh: number, report?: (t: number) => void): Float32Array {
+ * weights normalized by their sum. Two separable passes (H then V).
+ * Kept as the reference implementation: the pipeline now calls the
+ * bit-identical but much faster resizeLanczosFast below. */
+export function resizeLanczos(src: Float32Array, sw: number, sh: number, dw: number, dh: number, report?: (t: number) => void): Float32Array {
     let lastQ = -1;
     const tick = (t: number) => {  // quantized to 1/20 steps so per-row calls stay cheap
         if (!report) return;
@@ -158,6 +160,121 @@ function resizeLanczos(src: Float32Array, sw: number, sh: number, dw: number, dh
             if (wsum === 0) wsum = 1;
             const o = dstRow + x * 3;
             dst[o] = r / wsum; dst[o + 1] = g / wsum; dst[o + 2] = b / wsum;
+        }
+        tick(0.6 + (y + 1) / dh * 0.4);
+    }
+    return dst;
+}
+
+/* Per-line Lanczos-3 tap tables for one dimension. For each dst coord n:
+ * start[n] = first source tap, count[n] = tap count, weights laid out
+ * consecutively at offset[n] in ascending tap order. Exact-zero taps
+ * (|t-ca|/ia >= 3) can only sit at the window edges, so trimming them
+ * keeps the remaining taps contiguous — required by the tap-outer
+ * vertical pass. Weights stay unnormalized f64 and wsum[n] is their sum
+ * (1 when the sum is exactly 0, mirroring the per-pixel guard), so the
+ * accumulate-then-divide result matches resizeLanczos bit-for-bit. */
+interface LanczosLineTable {
+    start: Int32Array;
+    count: Int32Array;
+    offset: Int32Array;
+    weights: number[];
+    wsum: Float64Array;
+}
+
+function buildLanczosLine(srcLen: number, dstLen: number): LanczosLineTable {
+    const ga = srcLen / dstLen;
+    const ia = Math.max(ga, 1.0);
+    const ha = 3.0 * ia;
+    const start = new Int32Array(dstLen);
+    const count = new Int32Array(dstLen);
+    const offset = new Int32Array(dstLen);
+    const wsum = new Float64Array(dstLen);
+    const weights: number[] = [];
+    for (let n = 0; n < dstLen; n++) {
+        const ba = ga * (n + 0.5);
+        const ca = ba - 0.5;
+        let s = Math.max(0, Math.floor(ba - ha));
+        let e = Math.min(srcLen - 1, Math.ceil(ba + ha));
+        while (s <= e && lanczos3((s - ca) / ia) === 0) s++;
+        while (e >= s && lanczos3((e - ca) / ia) === 0) e--;
+        offset[n] = weights.length;
+        let sum = 0;
+        for (let t = s; t <= e; t++) {
+            const w = lanczos3((t - ca) / ia);
+            weights.push(w);
+            sum += w;
+        }
+        start[n] = s;
+        count[n] = e - s + 1;
+        wsum[n] = sum === 0 ? 1 : sum;
+    }
+    return { start, count, offset, weights, wsum };
+}
+
+/* Same math, tap set, tap order and progress reporting as resizeLanczos,
+ * with two structural changes:
+ *  1. each dimension's tap weights are built once per line instead of
+ *     being recomputed per pixel (the old code re-evaluated lanczos3 —
+ *     2 sin() calls each — for every output pixel),
+ *  2. the vertical pass accumulates whole contiguous rows per tap
+ *     instead of striding sy*dw*3 per pixel.
+ * Output is bit-identical to resizeLanczos. */
+export function resizeLanczosFast(src: Float32Array, sw: number, sh: number, dw: number, dh: number, report?: (t: number) => void): Float32Array {
+    let lastQ = -1;
+    const tick = (t: number) => {  // quantized to 1/20 steps so per-row calls stay cheap
+        if (!report) return;
+        const q = Math.floor(t * 20);
+        if (q !== lastQ) { lastQ = q; report(q / 20); }
+    };
+    const tmp = new Float32Array(dw * sh * 3);
+    const rowLen = dw * 3;
+
+    // ---- horizontal pass ----
+    const wx = buildLanczosLine(sw, dw);
+    const wxS = wx.start, wxC = wx.count, wxO = wx.offset, wxW = wx.weights, wxSum = wx.wsum;
+    for (let y = 0; y < sh; y++) {
+        const srcRow = y * sw * 3;
+        const tmpRow = y * rowLen;
+        for (let x = 0; x < dw; x++) {
+            const c = wxC[x], s = wxS[x];
+            let wo = wxO[x];
+            let o = srcRow + s * 3;
+            let r = 0, g = 0, b = 0;
+            for (let t = 0; t < c; t++, o += 3, wo++) {
+                const w = wxW[wo];
+                r += src[o] * w; g += src[o + 1] * w; b += src[o + 2] * w;
+            }
+            const ws = wxSum[x];
+            const d = tmpRow + x * 3;
+            tmp[d] = r / ws; tmp[d + 1] = g / ws; tmp[d + 2] = b / ws;
+        }
+        tick((y + 1) / sh * 0.6);
+    }
+
+    // ---- vertical pass (tap-outer: each source row is read and the dst
+    // row accumulated in contiguous memory). acc must be f64: the old
+    // per-pixel formulation sums all taps in f64 and rounds once on the
+    // f32 store, so accumulating straight into the f32 dst would round
+    // per tap and change the bits. ----
+    const wy = buildLanczosLine(sh, dh);
+    const wyS = wy.start, wyC = wy.count, wyO = wy.offset, wyW = wy.weights, wySum = wy.wsum;
+    const dst = new Float32Array(dw * dh * 3);
+    const acc = new Float64Array(rowLen);
+    for (let y = 0; y < dh; y++) {
+        const dstRow = y * rowLen;
+        const c = wyC[y], s = wyS[y], wo = wyO[y];
+        acc.fill(0);
+        for (let t = 0; t < c; t++) {
+            const w = wyW[wo + t];
+            const srcRow = (s + t) * rowLen;
+            for (let x = 0; x < rowLen; x++) {
+                acc[x] += tmp[srcRow + x] * w;
+            }
+        }
+        const ws = wySum[y];
+        for (let x = 0; x < rowLen; x++) {
+            dst[dstRow + x] = acc[x] / ws;
         }
         tick(0.6 + (y + 1) / dh * 0.4);
     }
@@ -270,7 +387,7 @@ export async function applyFilter(
         srcRgb[i * 3 + 2] = input_image_data[j + 2];
     }
     report(0.02, 'Downscaling');
-    const rgb = resizeLanczos(srcRgb, W, H, ds, dh, (t) => report(0.02 + t * 0.21, 'Downscaling'));
+    const rgb = resizeLanczosFast(srcRgb, W, H, ds, dh, (t) => report(0.02 + t * 0.21, 'Downscaling'));
 
     /* ---- 2. Tone curve + RGB->YIQ (planes normalized 0..1) ----
      * Per channel (this is the UI "Crush Blacks / Blow out Whites"):
@@ -516,7 +633,7 @@ export async function applyFilter(
 
     /* ---- 12. Lanczos upscale + RGBA out ---- */
     report(0.80, 'Upscaling');
-    const big = resizeLanczos(finalRgb, ds, dh, W, H, (t) => report(0.80 + t * 0.18, 'Upscaling'));
+    const big = resizeLanczosFast(finalRgb, ds, dh, W, H, (t) => report(0.80 + t * 0.18, 'Upscaling'));
     const out = new Uint8Array(W * H * 4);
     for (let i = 0, j = 0; i < W * H; i++, j += 4) {
         out[j] = Math.min(255, Math.max(0, Math.round(big[i * 3])));

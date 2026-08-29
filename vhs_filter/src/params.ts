@@ -250,7 +250,7 @@ export const PARAM_SECTIONS: ParamSection[] = [
         key: 'sharpen_amount',
         label: 'Sharpen Intensity',
         type: 'range',
-        min: 0, max: 10, step: 0.1, def: 3.0,
+        min: 0, max: 10, step: 0.1, def: 2.0,
         info: "Strength of the edge enhancement. High values leave unnatural 'white ghosts' beside dark lines.",
         enabledWhen: isOn('apply_sharpening'),
       },

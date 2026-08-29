@@ -33,7 +33,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         Images are processed by a local algorithm and data will not be uploaded. No server is needed.
       </p>
       <p>
-        Source Code: <a href="https://github.com/krrr/vhs-filter" target="_blank">https://github.com/krrr/vhs-filter</a>
+        Source code: <a href="https://github.com/krrr/toys" target="_blank">https://github.com/krrr/toys</a>
       </p>
 
       <p>

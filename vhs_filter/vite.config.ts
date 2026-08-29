@@ -8,6 +8,9 @@ function buildDate() {
 }
 
 export default defineConfig({
+  // Relative base: the built app must work when served from any URL
+  // subpath (e.g. https://host/some/dir/), not just the domain root.
+  base: './',
   plugins: [vue()],
   define: {
     __BUILD_DATE__: JSON.stringify(buildDate()),

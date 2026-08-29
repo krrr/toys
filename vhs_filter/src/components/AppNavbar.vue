@@ -1,4 +1,8 @@
 <script setup lang="ts">
+// Public assets referenced from templates aren't rewritten by Vite at build
+// time, so prefix with the configured base (relative when base is './').
+const iconUrl = `${import.meta.env.BASE_URL}vhs.svg`
+
 withDefaults(defineProps<{ hasImage?: boolean }>(), { hasImage: false })
 
 defineEmits<{
@@ -12,7 +16,7 @@ defineEmits<{
   <div class="navbar navbar-inverse navbar-static-top app-navbar">
     <div class="navbar-inner">
       <a class="brand" href="#" @click.prevent>
-        <img src="/vhs.svg" class="app-icon"> VHS Filter
+        <img :src="iconUrl" class="app-icon"> VHS Filter
       </a>
       <ul class="nav">
         <li>
